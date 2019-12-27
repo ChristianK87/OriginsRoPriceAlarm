@@ -1,7 +1,7 @@
-import 'dart:ffi';
-import 'dart:math';
+
 
 import 'package:flutter/material.dart';
+import 'package:price_alarm/pricealarm/price_alarm.dart';
 
 void main() => runApp(MyApp());
 
@@ -60,68 +60,4 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-class PriceAlarmState extends State<PriceAlarmWidget> {
 
-  final _priceAlarams = <PriceAlarm>[];
-  final _biggerFont = const TextStyle(fontSize: 18.0);
-
-
-  Widget _buildSuggestions() {
-    return ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemBuilder: /*1*/ (context, i) {
-          if (i.isOdd) return Divider(); /*2*/
-
-          final index = i ~/ 2; /*3*/
-          if (index >= _priceAlarams.length) {
-            _priceAlarams.add(new PriceAlarm(Random.secure().nextInt(10000).toString(),Random.secure().nextDouble())); /*4*/
-          }
-          return _buildRow(_priceAlarams[index]);
-        });
-  }
-
-  Widget _buildRow(PriceAlarm priceAlarm) {
-    return ListTile(
-      title: Text(
-        priceAlarm.getId() + ' - '+ priceAlarm.getPrice().toString(),
-        style: _biggerFont,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Startup Name Generator'),
-      ),
-      body: _buildSuggestions(),
-    );
-  }
-}
-
-class PriceAlarmWidget extends StatefulWidget {
-  @override
-  PriceAlarmState createState() => PriceAlarmState();
-}
-
-class PriceAlarm {
-  String _id;
-  double _price;
-
-  PriceAlarm(this._id, this._price);
-
-  getId(){
-    return _id;
-  }
-  setId(String id){
-    this._id = id;
-  }
-
-  getPrice(){
-    return _price;
-  }
-  setPrice(double price){
-    this._price = price;
-  }
-}
