@@ -17,9 +17,6 @@ jobs:
     - name: Install dependencies
       working-directory: ./price_alarm
       run: flutter pub get
-    - name: Run tests
-      working-directory: ./price_alarm
-      run: flutter test
     - name: Create APK
       working-directory: ./price_alarm
       run: flutter build apk
