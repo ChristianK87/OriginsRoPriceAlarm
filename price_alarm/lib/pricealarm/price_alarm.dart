@@ -10,7 +10,6 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
   var _priceAlarms = List<PriceAlarm>();
   List<Item> items = new List();
   final _biggerFont = const TextStyle(fontSize: 18.0);
-  Timer timer;
 
   Widget _buildSuggestions()  {
     return ListView.builder(
@@ -29,7 +28,7 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
       ),
       leading: Icon(
           Icons.bookmark_border,
-          color: checkItemIsAvailable(priceAlarm) ? Colors.green : Colors.red
+          color: priceAlarm.found ? Colors.green : Colors.red
       ),
       trailing: IconButton(
         icon: Icon(
@@ -46,13 +45,14 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
 
   @override
   void initState() {
+    Timer.periodic(Duration(minutes: 1), (Timer t)  => setState(() {
+
+    }));
     super.initState();
-    timer = Timer.periodic(Duration(minutes: 5), (Timer t)  => checkMarket());
   }
 
   @override
   void dispose() {
-    timer?.cancel();
     super.dispose();
   }
 
@@ -132,16 +132,6 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
     new PriceAlarmRepository().removeEntry(id);
   }
 
-  checkMarket() async {
-    var market =  await new OriginRoService().getMarket();
-    items = new List();
-    setState(() {
-      market.shops.forEach((Shop shop) => items.addAll(shop.items));
-    });}
-
-  bool checkItemIsAvailable(PriceAlarm priceAlarm) {
-    return items.firstWhere((Item item) => item.itemId == priceAlarm.id && item.price <= priceAlarm.price, orElse: ()=> null)!= null;
-  }
 }
 
 class PriceAlarmWidget extends StatefulWidget {
@@ -152,16 +142,17 @@ class PriceAlarmWidget extends StatefulWidget {
 class PriceAlarm {
   String id;
   int price;
-  bool found = false;
+  bool found;
 
   PriceAlarm();
 
-  PriceAlarm.withIdAndPrice(this.id, this.price);
+  PriceAlarm.withIdAndPrice(this.id, this.price, this.found);
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'price': price
+      'price': price,
+      'found': found,
     };
   }
 }
@@ -236,6 +227,7 @@ class PriceAlarmFormState extends State<PriceAlarmForm> {
                 if (form.validate()) {
                   // If the form is valid, display a Snackbar.
                   form.save();
+                  newPriceAlarm.found = false;
                   var priceAlarmService = new PriceAlarmRepository();
                   await priceAlarmService.insertPriceAlarm(newPriceAlarm);
                   Scaffold.of(context)
@@ -257,17 +249,17 @@ class PriceAlarmRepository{
   Future<Database> database () async {
     return await openDatabase(
       // Set the path to the database.
-      join( await getDatabasesPath(), 'price_alarm_database2.db'),
+      join( await getDatabasesPath(), 'price_alarm_database3.db'),
       // When the database is first created, create a table to store dogs.
       onCreate: (db, version) {
         // Run the CREATE TABLE statement on the database.
         return db.execute(
-          "CREATE TABLE price_alarm(id TEXT PRIMARY KEY, price INTEGER)",
+          "CREATE TABLE price_alarm(id TEXT PRIMARY KEY, price INTEGER, found INTEGER)",
         );
       },
       // Set the version. This executes the onCreate function and provides a
       // path to perform database upgrades and downgrades.
-      version: 1,
+      version: 2,
     );
   }
 
@@ -298,6 +290,7 @@ class PriceAlarmRepository{
       return PriceAlarm.withIdAndPrice(
         maps[i]['id'],
         maps[i]['price'],
+        maps[i]['found'] == 1,
       );
     });
   }
@@ -309,6 +302,17 @@ class PriceAlarmRepository{
       'price_alarm',
       where: "id = ?",
       whereArgs: [id],
+    );
+  }
+
+  void updatePriceAlarm(PriceAlarm priceAlarm) async {
+    final db = await database();
+
+    await db.update(
+      'price_alarm',
+      priceAlarm.toMap(),
+      where: "id = ?",
+      whereArgs: [priceAlarm.id],
     );
   }
 }
