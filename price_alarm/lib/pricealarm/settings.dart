@@ -10,7 +10,7 @@ class SettingsForm extends StatefulWidget {
   SettingsFormState createState() {
     return SettingsFormState();
   }
-}
+} 
 
 // Define a corresponding State class.
 // This class holds data related to the form.
