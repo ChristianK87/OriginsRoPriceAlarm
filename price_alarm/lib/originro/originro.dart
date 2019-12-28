@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:price_alarm/pricealarm/settings.dart';
+import 'package:price_alarm/settings/settings.dart';
 import 'package:http/http.dart' as http;
 
 const String ApiBaseUrl = 'https://api.originsro.org/api/v1/';

@@ -1,7 +1,7 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:flutter/material.dart';
-import 'package:price_alarm/pricealarm/settings.dart';
+import 'package:price_alarm/settings/settings.dart';
 import 'package:price_alarm/originro/originro.dart';
 import 'dart:async';
 
