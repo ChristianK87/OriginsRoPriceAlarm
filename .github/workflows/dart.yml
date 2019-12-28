@@ -1,4 +1,4 @@
-name: Dart CI
+name: Flutter CI
 
 on: [push]
 
@@ -13,10 +13,13 @@ jobs:
         java-version: '12.x'
     - uses: subosito/flutter-action@v1
       with:
-        flutter-version: '1.9.1+hotfix.6'
+        flutter-version: '1.12.13+hotfix.5'
     - name: Install dependencies
       working-directory: ./price_alarm
       run: flutter pub get
+    - name: Run tests
+      working-directory: ./price_alarm
+      run: flutter test
     - name: Create APK
       working-directory: ./price_alarm
       run: flutter build apk
