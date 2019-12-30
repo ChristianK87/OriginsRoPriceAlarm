@@ -2,65 +2,18 @@
 
 import 'package:flutter/material.dart';
 import 'package:price_alarm/pricealarm/price_alarm.dart';
-import 'package:price_alarm/originro/originro.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'dart:async';
+
 
 
 FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  flutterLocalNotificationsPlugin = new FlutterLocalNotificationsPlugin();
-// initialise the plugin. app_icon needs to be a added as a drawable resource to the Android head project
-  var initializationSettingsAndroid =
-  new AndroidInitializationSettings('@mipmap/notification');
-  var initializationSettingsIOS = IOSInitializationSettings(
-      onDidReceiveLocalNotification: onDidReceiveLocalNotification);
-  var initializationSettings = InitializationSettings(
-      initializationSettingsAndroid, initializationSettingsIOS);
-  flutterLocalNotificationsPlugin.initialize(initializationSettings,
-      onSelectNotification: onSelectNotification);
-  Timer.periodic(Duration(minutes: 6), (Timer t)  => callbackDispatcher());
   runApp(MyApp());
+
 }
 
-
-Future onSelectNotification(String payload) async {
-  if (payload != null) {
-    debugPrint('notification payload: ' + payload);
-  }
-}
-
-Future onDidReceiveLocalNotification(int id, String title, String body, String payload) {
-  return Future.value(true);
-}
-
-callbackDispatcher() async {
-    var priceAlarmRepository = new PriceAlarmRepository();
-    List<PriceAlarm> priceAlarms = await priceAlarmRepository.priceAlarms();
-    Market market = await new OriginRoService().getMarket();
-    List<Item> items = new List();
-    market.shops.forEach((Shop shop) => items.addAll(shop.items));
-    priceAlarms.forEach((PriceAlarm priceAlarm){
-      priceAlarm.found = items.firstWhere((Item item) => item.itemId == priceAlarm.id && item.price <= priceAlarm.price, orElse: ()=> null)!= null;
-      if(priceAlarm.found){
-        var androidPlatformChannelSpecifics = AndroidNotificationDetails(
-            'your channel id', 'your channel name', 'your channel description',
-            importance: Importance.Max, priority: Priority.High, ticker: 'ticker');
-        var iOSPlatformChannelSpecifics = IOSNotificationDetails();
-        var platformChannelSpecifics = NotificationDetails(
-            androidPlatformChannelSpecifics, iOSPlatformChannelSpecifics);
-        flutterLocalNotificationsPlugin.show(
-            0, 'Found item', 'An Item on your wishlist is on sale', platformChannelSpecifics,
-            payload: '');
-      }
-      priceAlarmRepository.updatePriceAlarm(priceAlarm);
-    });
-
-    //Return true when the task executed successfully or not
-}
 
 class MyApp extends StatelessWidget {
   // This widget is the root of your application.
@@ -83,6 +36,8 @@ class MyApp extends StatelessWidget {
       home: MyHomePage(title: 'Price Alarm'),
     );
   }
+
+
 }
 
 class MyHomePage extends StatefulWidget {

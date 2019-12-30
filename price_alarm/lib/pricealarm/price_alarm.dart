@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:price_alarm/settings/settings.dart';
 import 'package:price_alarm/originro/originro.dart';
 import 'dart:async';
+import 'package:background_fetch/background_fetch.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class PriceAlarmState extends State<PriceAlarmWidget> {
   BuildContext context;
   var _priceAlarms = List<PriceAlarm>();
   List<Item> items = new List();
   final _biggerFont = const TextStyle(fontSize: 18.0);
+  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
 
   Widget _buildSuggestions()  {
     return ListView.builder(
@@ -45,15 +48,97 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
 
   @override
   void initState() {
-    Timer.periodic(Duration(minutes: 1), (Timer t)  => setState(() {
-
-    }));
     super.initState();
+    flutterLocalNotificationsPlugin = new FlutterLocalNotificationsPlugin();
+// initialise the plugin. app_icon needs to be a added as a drawable resource to the Android head project
+    var initializationSettingsAndroid =
+    new AndroidInitializationSettings('@mipmap/notification');
+    var initializationSettingsIOS = IOSInitializationSettings(
+        onDidReceiveLocalNotification: onDidReceiveLocalNotification);
+    var initializationSettings = InitializationSettings(
+        initializationSettingsAndroid, initializationSettingsIOS);
+    flutterLocalNotificationsPlugin.initialize(initializationSettings,
+        onSelectNotification: onSelectNotification);
+    BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);
+    initPlatformState();
+  }
+
+  void backgroundFetchHeadlessTask() async {
+    print('[BackgroundFetch] Headless event received.');
+    await checkMarket();
+    BackgroundFetch.finish();
+  }
+
+  Future onSelectNotification(String payload) async {
+    if (payload != null) {
+      debugPrint('notification payload: ' + payload);
+    }
+    setState(() {
+
+    });
+  }
+
+  Future onDidReceiveLocalNotification(int id, String title, String body, String payload) {
+    return Future.value(true);
   }
 
   @override
   void dispose() {
     super.dispose();
+  }
+
+  // Platform messages are asynchronous, so we initialize in an async method.
+  Future<void> initPlatformState() async {
+    // Configure BackgroundFetch.
+    BackgroundFetch.configure(BackgroundFetchConfig(
+        minimumFetchInterval: 15,
+        stopOnTerminate: false,
+        enableHeadless: false,
+    ), () async {
+      // This is the fetch-event callback.
+      print('[BackgroundFetch] Event received');
+      setState(() async {
+        await checkMarket();
+      });
+      // IMPORTANT:  You must signal completion of your fetch task or the OS can punish your app
+      // for taking too long in the background.
+      BackgroundFetch.finish();
+    }).then((int status) {
+      print('[BackgroundFetch] configure success: $status');
+
+    }).catchError((e) {
+      print('[BackgroundFetch] configure ERROR: $e');
+    });
+
+    // If the widget was removed from the tree while the asynchronous platform
+    // message was in flight, we want to discard the reply rather than calling
+    // setState to update our non-existent appearance.
+    if (!mounted) return;
+  }
+
+  checkMarket() async {
+    var priceAlarmRepository = new PriceAlarmRepository();
+    List<PriceAlarm> priceAlarms = await priceAlarmRepository.priceAlarms();
+    Market market = await new OriginRoService().getMarket();
+    List<Item> items = new List();
+    market.shops.forEach((Shop shop) => items.addAll(shop.items));
+    priceAlarms.forEach((PriceAlarm priceAlarm){
+      priceAlarm.found = items.firstWhere((Item item) => item.itemId == priceAlarm.id && item.price <= priceAlarm.price, orElse: ()=> null)!= null;
+      if(priceAlarm.found){
+        var androidPlatformChannelSpecifics = AndroidNotificationDetails(
+            'your channel id', 'your channel name', 'your channel description',
+            importance: Importance.Max, priority: Priority.High, ticker: 'ticker');
+        var iOSPlatformChannelSpecifics = IOSNotificationDetails();
+        var platformChannelSpecifics = NotificationDetails(
+            androidPlatformChannelSpecifics, iOSPlatformChannelSpecifics);
+        flutterLocalNotificationsPlugin.show(
+            0, 'Found item', 'An Item on your wishlist is on sale', platformChannelSpecifics,
+            payload: '');
+      }
+      priceAlarmRepository.updatePriceAlarm(priceAlarm);
+    });
+
+    //Return true when the task executed successfully or not
   }
 
   @override
