@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:price_alarm/pricealarm/price_alarm.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:price_alarm/settings/settings.dart';
 
 
 
@@ -68,7 +69,43 @@ class _MyHomePageState extends State<MyHomePage> {
     // The Flutter framework has been optimized to make rerunning build methods
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
-    return PriceAlarmWidget();
+    return FutureBuilder<Settings>(
+      future: new SettingsService().getSettings(),
+      builder: (BuildContext context, AsyncSnapshot<Settings> snapshot){
+        if(snapshot.hasData){
+          if(snapshot.data.apiKey != null){
+            return PriceAlarmWidget();
+          }else{
+            return Scaffold(
+                appBar: AppBar(
+                title: Text('Settings'),
+            ),
+              body: new SettingsForm(),
+            );
+          }
+        }
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('oRO Price Alarm'),
+          ),
+          body: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              SizedBox(
+                child: CircularProgressIndicator(),
+                width: 60,
+                height: 60,
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 16),
+                child: Text('Awaiting result...'),
+              )
+            ],
+          ),
+        );
+    });
+
   }
 }
 

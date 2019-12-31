@@ -1,4 +1,3 @@
-import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:flutter/material.dart';
 import 'package:price_alarm/settings/settings.dart';
@@ -6,45 +5,14 @@ import 'package:price_alarm/originro/originro.dart';
 import 'dart:async';
 import 'package:background_fetch/background_fetch.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:price_alarm/shared.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 
 class PriceAlarmState extends State<PriceAlarmWidget> {
   BuildContext context;
   var _priceAlarms = List<PriceAlarm>();
-  List<Item> items = new List();
-  final _biggerFont = const TextStyle(fontSize: 18.0);
+  List<MarketItem> items = new List();
   FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
-
-  Widget _buildSuggestions()  {
-    return ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemCount: this._priceAlarms.length,
-        itemBuilder: /*1*/ (context, i) {
-          return _buildRow(_priceAlarms.elementAt(i));
-        });
-  }
-
-  Widget _buildRow(PriceAlarm priceAlarm) {
-    return ListTile(
-      title: Text(
-        priceAlarm.id + ' - '+ priceAlarm.price.toString(),
-        style: _biggerFont,
-      ),
-      leading: Icon(
-          Icons.bookmark_border,
-          color: priceAlarm.found ? Colors.green : Colors.red
-      ),
-      trailing: IconButton(
-        icon: Icon(
-          Icons.remove,
-        ),
-        onPressed: () {
-          setState(() {
-            removeEntry(priceAlarm.id);
-          });
-        },
-      ),
-    );
-  }
 
   @override
   void initState() {
@@ -96,18 +64,12 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
         enableHeadless: false,
     ), () async {
       // This is the fetch-event callback.
-      print('[BackgroundFetch] Event received');
       setState(() async {
         await checkMarket();
       });
       // IMPORTANT:  You must signal completion of your fetch task or the OS can punish your app
       // for taking too long in the background.
       BackgroundFetch.finish();
-    }).then((int status) {
-      print('[BackgroundFetch] configure success: $status');
-
-    }).catchError((e) {
-      print('[BackgroundFetch] configure ERROR: $e');
     });
 
     // If the widget was removed from the tree while the asynchronous platform
@@ -120,10 +82,10 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
     var priceAlarmRepository = new PriceAlarmRepository();
     List<PriceAlarm> priceAlarms = await priceAlarmRepository.priceAlarms();
     Market market = await new OriginRoService().getMarket();
-    List<Item> items = new List();
+    List<MarketItem> items = new List();
     market.shops.forEach((Shop shop) => items.addAll(shop.items));
     priceAlarms.forEach((PriceAlarm priceAlarm){
-      priceAlarm.found = items.firstWhere((Item item) => item.itemId == priceAlarm.id && item.price <= priceAlarm.price, orElse: ()=> null)!= null;
+      priceAlarm.found = items.firstWhere((MarketItem item) => item.itemId == priceAlarm.id && item.price <= priceAlarm.price, orElse: ()=> null)!= null;
       if(priceAlarm.found){
         var androidPlatformChannelSpecifics = AndroidNotificationDetails(
             'your channel id', 'your channel name', 'your channel description',
@@ -217,6 +179,56 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
     new PriceAlarmRepository().removeEntry(id);
   }
 
+  Widget _buildSuggestions()  {
+    return ListView.builder(
+        padding: const EdgeInsets.all(16.0),
+        itemCount: this._priceAlarms.length,
+        itemBuilder: /*1*/ (context, i) {
+          return _buildRow(_priceAlarms.elementAt(i));
+        });
+  }
+
+  Widget _buildRow(PriceAlarm priceAlarm) {
+    return Container(
+        margin: const EdgeInsets.all(5.0),
+        padding: const EdgeInsets.all(5.0),
+        decoration: BoxDecoration(
+          shape: BoxShape.rectangle,
+          borderRadius: BorderRadius.circular(10.0),
+          color: priceAlarm.found ? Colors.lightGreenAccent: Colors.white,
+          boxShadow: [
+            new BoxShadow(
+                color: Colors.grey,
+                offset: new Offset(2.0, 2.0),
+                blurRadius: 2.0,
+                spreadRadius: 2.0
+            )
+          ]
+        ),
+    child: ListTile(
+      title: Text(
+        priceAlarm.name,
+        style: TextStyle(fontSize: 18.0),
+      ),
+      subtitle:
+      Text(
+        '${Shared.intToStringWithSeparator(priceAlarm.price)} Zeny',
+        style: TextStyle(fontSize: 16.0),
+      ),
+      trailing: IconButton(
+        icon: Icon(
+          Icons.delete,
+        ),
+        onPressed: () {
+          setState(() {
+            removeEntry(priceAlarm.id);
+          });
+        },
+      ),
+    )
+    );
+  }
+
 }
 
 class PriceAlarmWidget extends StatefulWidget {
@@ -228,16 +240,18 @@ class PriceAlarm {
   String id;
   int price;
   bool found;
+  String name;
 
   PriceAlarm();
 
-  PriceAlarm.withIdAndPrice(this.id, this.price, this.found);
+  PriceAlarm.withIdAndPrice(this.id, this.price, this.found, this.name);
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'price': price,
       'found': found,
+      'name': name
     };
   }
 }
@@ -265,27 +279,44 @@ class PriceAlarmFormState extends State<PriceAlarmForm> {
 
   final newPriceAlarm = new PriceAlarm();
 
+  final TextEditingController _typeAheadController = TextEditingController();
+
   @override
   Widget build(BuildContext context) {
     // Build a Form widget using the _formKey created above.
     return Form(
       key: _formKey,
-      child: Column(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          TextFormField(
-            decoration: const InputDecoration(
-              hintText: 'Enter the item id',
-              labelText: 'Id',
+          TypeAheadField(
+            textFieldConfiguration: TextFieldConfiguration(
+                autofocus: true,
+                controller: _typeAheadController,
+                style: DefaultTextStyle.of(context).style.copyWith(
+                    fontStyle: FontStyle.italic
+                ),
+                decoration: InputDecoration(
+                    border: OutlineInputBorder(),
+                  labelText: 'Item'
+                )
             ),
-            keyboardType: TextInputType.number,
-            validator: (value) {
-              if (value.isEmpty) {
-                return 'Please enter some text';
-              }
-              return null;
+            suggestionsCallback: (pattern) async {
+              return await new ItemRepository().items(pattern);
             },
-            onSaved: (val) => newPriceAlarm.id = val,
+            itemBuilder: (context, Item suggestion) {
+              return ListTile(
+                title: Text(suggestion.toString()),
+                subtitle: Text(suggestion.itemId),
+              );
+            },
+            onSuggestionSelected: (Item suggestion) {
+              newPriceAlarm.id = suggestion.itemId;
+              newPriceAlarm.name = suggestion.toString();
+              _typeAheadController.text = suggestion.toString();
+            },
           ),
           TextFormField(
             decoration: const InputDecoration(
@@ -325,32 +356,16 @@ class PriceAlarmFormState extends State<PriceAlarmForm> {
           ),
         ],
       ),
+      ),
     );
   }
 }
 
 class PriceAlarmRepository{
 
-  Future<Database> database () async {
-    return await openDatabase(
-      // Set the path to the database.
-      join( await getDatabasesPath(), 'price_alarm_database3.db'),
-      // When the database is first created, create a table to store dogs.
-      onCreate: (db, version) {
-        // Run the CREATE TABLE statement on the database.
-        return db.execute(
-          "CREATE TABLE price_alarm(id TEXT PRIMARY KEY, price INTEGER, found INTEGER)",
-        );
-      },
-      // Set the version. This executes the onCreate function and provides a
-      // path to perform database upgrades and downgrades.
-      version: 2,
-    );
-  }
-
   Future<void> insertPriceAlarm(PriceAlarm priceAlarm) async {
     // Get a reference to the database.
-    final Database db = await database();
+    final Database db = await Shared.getDatabase();
 
     // Insert the Dog into the correct table. You might also specify the
     // `conflictAlgorithm` to use in case the same dog is inserted twice.
@@ -365,7 +380,7 @@ class PriceAlarmRepository{
 
   Future<List<PriceAlarm>> priceAlarms() async {
     // Get a reference to the database.
-    final Database db = await database();
+    final Database db = await Shared.getDatabase();
 
     // Query the table for all The Dogs.
     final List<Map<String, dynamic>> maps = await db.query('price_alarm');
@@ -376,12 +391,13 @@ class PriceAlarmRepository{
         maps[i]['id'],
         maps[i]['price'],
         maps[i]['found'] == 1,
+        maps[i]['name']
       );
     });
   }
 
   Future<void> removeEntry(id) async {
-    final db = await database();
+    final db = await Shared.getDatabase();
 
     await db.delete(
       'price_alarm',
@@ -391,7 +407,7 @@ class PriceAlarmRepository{
   }
 
   void updatePriceAlarm(PriceAlarm priceAlarm) async {
-    final db = await database();
+    final db = await Shared.getDatabase();
 
     await db.update(
       'price_alarm',

@@ -1,5 +1,7 @@
 
 import 'package:flutter/material.dart';
+import 'package:price_alarm/originro/originro.dart';
+import 'package:price_alarm/pricealarm/price_alarm.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsForm extends StatefulWidget {
@@ -32,45 +34,68 @@ class SettingsFormState extends State<SettingsForm> {
         if(snapshot.hasData){
           return Form(
             key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                TextFormField(
-                  decoration: const InputDecoration(
-                    hintText: 'Enter the API Key',
-                    labelText: 'API Key',
+            child:  Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  TextFormField(
+                    decoration: const InputDecoration(
+                      hintText: 'Enter the API Key',
+                      labelText: 'API Key',
+                    ),
+                    keyboardType: TextInputType.text,
+                    validator: (value) {
+                      if (value.isEmpty) {
+                        return 'Please enter some text';
+                      }
+                      return null;
+                    },
+                    onSaved: (val) => _settings.apiKey = val,
+                    initialValue: snapshot.data.apiKey,
                   ),
-                  keyboardType: TextInputType.text,
-                  validator: (value) {
-                    if (value.isEmpty) {
-                      return 'Please enter some text';
-                    }
-                    return null;
-                  },
-                  onSaved: (val) => _settings.apiKey = val,
-                  initialValue: snapshot.data._apiKey,
-                ),
 
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  child: RaisedButton(
-                    onPressed: () async {
-                      // Validate returns true if the form is valid, or false
-                      // otherwise.
-                      final FormState form = _formKey.currentState;
-                      if (form.validate()) {
-                        // If the form is valid, display a Snackbar.
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                    child: RaisedButton(
+                      onPressed: () async {
+                        // Validate returns true if the form is valid, or false
+                        // otherwise.
+                        final FormState form = _formKey.currentState;
+                        if (form.validate()) {
+                          // If the form is valid, display a Snackbar.
+                          form.save();
+                          await new SettingsService().saveSettings(_settings);
+                          Scaffold.of(context)
+                              .showSnackBar(SnackBar(content: Text('Processing Data')));
+                          if(!Navigator.pop(context)){
+                            Navigator.of(context).pushReplacement( MaterialPageRoute<void>(
+                              builder: (BuildContext context) {
+                                return PriceAlarmWidget();
+                              }
+                              ));
+                          }
+                        }
+                      },
+                      child: Text('Submit'),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                    child: RaisedButton(
+                      onPressed: () async {
+                        final FormState form = _formKey.currentState;
                         form.save();
                         await new SettingsService().saveSettings(_settings);
+                        await new OriginRoService().syncItems();
                         Scaffold.of(context)
-                            .showSnackBar(SnackBar(content: Text('Processing Data')));
-                        Navigator.pop(context);
-                      }
-                    },
-                    child: Text('Submit'),
+                            .showSnackBar(SnackBar(content: Text('Importing items')));
+                      },
+                      child: Text('Sync item database'),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         }
@@ -98,7 +123,7 @@ class SettingsService {
 
   saveSettings(Settings settings) async {
     var prefs = await SharedPreferences.getInstance();
-    prefs.setString('apiKey', settings._apiKey);
+    prefs.setString('apiKey', settings.apiKey);
   }
 
   Future<Settings> getSettings() async {
@@ -111,11 +136,5 @@ class SettingsService {
 }
 
 class Settings{
-
-  String _apiKey;
-  String get apiKey => _apiKey;
-
-  set apiKey(String value) {
-    _apiKey = value;
-  }
+  String apiKey;
 }
