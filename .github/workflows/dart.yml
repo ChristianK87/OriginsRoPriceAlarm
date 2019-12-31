@@ -20,6 +20,3 @@ jobs:
     - name: Run tests
       working-directory: ./price_alarm
       run: flutter test
-    - name: Create APK
-      working-directory: ./price_alarm
-      run: flutter build apk
