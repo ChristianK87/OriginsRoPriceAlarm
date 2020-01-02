@@ -20,13 +20,34 @@ class OriginRoService{
 
   syncItems() async {
     var settings = await new SettingsService().getSettings();
-    http.Response response = await http.get(ApiBaseUrl+ 'items/list', headers: {'x-api-key':settings.apiKey});
-    if(response.statusCode == 200){
+    http.Response itemResponse = await http.get(ApiBaseUrl+ 'items/list', headers: {'x-api-key':settings.apiKey});
+    if(itemResponse.statusCode == 200){
       var itemRepo = new ItemRepository();
-      var items = (jsonDecode(response.body)['items'] as List<dynamic>).map((dynamic item) =>Item.fromJson(item)).toList();
+
+      http.Response iconResponse = await http.get(ApiBaseUrl+ 'items/icons', headers: {'x-api-key':settings.apiKey});
+      List<Item> items;
+      if(iconResponse.statusCode == 200){
+        var icons = (jsonDecode(iconResponse.body)['icons'] as List<dynamic>);
+        items = (jsonDecode(itemResponse.body)['items'] as List<dynamic>).map((dynamic item) {
+          var itemWithicon = Item.fromJson(item);
+          findAndExtractIcon(icons, itemWithicon);
+          return itemWithicon;
+        }).toList();
+      }else{
+         items = (jsonDecode(itemResponse.body)['items'] as List<dynamic>).map((dynamic item) =>Item.fromJson(item)).toList();
+      }
       await itemRepo.insertItems(items);
     }else{
       throw Exception('Failed to get markets');
+    }
+  }
+
+  void findAndExtractIcon(List icons, Item itemWithicon) {
+    var icon = icons.firstWhere((dynamic i) => (i['item_id'] as int).toString() == itemWithicon.itemId, orElse: () => null);
+    if(icon != null){
+      String base64Icon = icon['icon'];
+      base64Icon = base64Icon.substring(22, base64Icon.length);
+      itemWithicon.icon = base64Icon;
     }
   }
 }
@@ -68,7 +89,7 @@ class ItemRepository{
     }
 
     return List.generate(maps.length, (i) {
-      return Item(
+      return Item.withIcon(
         maps[i]['id'],
         maps[i]['uniqueName'],
         maps[i]['name'],
@@ -76,6 +97,7 @@ class ItemRepository{
         maps[i]['npcPrice'],
         maps[i]['subtype'],
         maps[i]['slots'],
+        maps[i]['icon'],
       );
     });
   }
@@ -194,8 +216,14 @@ class Item{
   String subtype;
   int npcPrice;
   int slots;
+  String icon;
 
   Item(this.itemId, this.uniqueName, this.name, this.type, this.npcPrice, this.subtype, this.slots);
+
+
+  Item.withIcon(this.itemId, this.uniqueName, this.name, this.type,
+
+      this.npcPrice, this.subtype, this.slots, this.icon);
 
   factory  Item.fromJson(Map<String, dynamic> json) {
     return Item(
@@ -222,6 +250,7 @@ class Item{
       'npcPrice': npcPrice,
       'subtype': subtype,
       'slots': slots,
+      'icon': icon,
     };
   }
 }

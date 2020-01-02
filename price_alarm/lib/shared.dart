@@ -22,13 +22,16 @@ class Shared {
         // Run the CREATE TABLE statement on the database.
         if(oldVersion < newVersion) {
           db.execute(
-            "ALTER TABLE price_alarm ADD name TEXT",
+            "ALTER TABLE price_alarm ADD icon TEXT",
+          );
+          db.execute(
+            "ALTER TABLE item ADD icon TEXT",
           );
         }
       },
       // Set the version. This executes the onCreate function and provides a
       // path to perform database upgrades and downgrades.
-      version: 5,
+      version: 6,
     );
   }
   

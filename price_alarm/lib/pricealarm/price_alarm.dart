@@ -7,6 +7,7 @@ import 'package:background_fetch/background_fetch.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:price_alarm/shared.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'dart:convert';
 
 class PriceAlarmState extends State<PriceAlarmWidget> {
   BuildContext context;
@@ -215,6 +216,8 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
         '${Shared.intToStringWithSeparator(priceAlarm.price)} Zeny',
         style: TextStyle(fontSize: 16.0),
       ),
+      leading:  priceAlarm.icon != null ? Image.memory(base64Decode(priceAlarm.icon)): null
+      ,
       trailing: IconButton(
         icon: Icon(
           Icons.delete,
@@ -241,17 +244,19 @@ class PriceAlarm {
   int price;
   bool found;
   String name;
+  String icon;
 
   PriceAlarm();
 
-  PriceAlarm.withIdAndPrice(this.id, this.price, this.found, this.name);
+  PriceAlarm.withIdAndPrice(this.id, this.price, this.found, this.name, this.icon);
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'price': price,
       'found': found,
-      'name': name
+      'name': name,
+      'icon': icon,
     };
   }
 }
@@ -308,6 +313,7 @@ class PriceAlarmFormState extends State<PriceAlarmForm> {
             },
             itemBuilder: (context, Item suggestion) {
               return ListTile(
+                leading: suggestion.icon != null ? Image.memory(base64Decode(suggestion.icon)) : null,
                 title: Text(suggestion.toString()),
                 subtitle: Text(suggestion.itemId),
               );
@@ -315,6 +321,7 @@ class PriceAlarmFormState extends State<PriceAlarmForm> {
             onSuggestionSelected: (Item suggestion) {
               newPriceAlarm.id = suggestion.itemId;
               newPriceAlarm.name = suggestion.toString();
+              newPriceAlarm.icon = suggestion.icon;
               _typeAheadController.text = suggestion.toString();
             },
           ),
@@ -391,7 +398,8 @@ class PriceAlarmRepository{
         maps[i]['id'],
         maps[i]['price'],
         maps[i]['found'] == 1,
-        maps[i]['name']
+        maps[i]['name'],
+        maps[i]['icon'],
       );
     });
   }
