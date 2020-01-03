@@ -102,6 +102,25 @@ class ItemRepository{
     });
   }
 
+  cards(String pattern) async {
+    final Database db = await Shared.getDatabase();
+    List<Map<String, dynamic>>  maps = await db.query('item', where: "name LIKE '%"+ pattern +"%' AND type = 'IT_CARD'");
+
+
+    return List.generate(maps.length, (i) {
+      return Item.withIcon(
+        maps[i]['id'],
+        maps[i]['uniqueName'],
+        maps[i]['name'],
+        maps[i]['type'],
+        maps[i]['npcPrice'],
+        maps[i]['subtype'],
+        maps[i]['slots'],
+        maps[i]['icon'],
+      );
+    });
+  }
+
   Future<void> removeItem(id) async {
     final db = await Shared.getDatabase();
 
@@ -122,6 +141,8 @@ class ItemRepository{
       whereArgs: [item.itemId],
     );
   }
+
+
 
 }
 
@@ -238,7 +259,7 @@ class Item{
   }
 
   toString(){
-    return subtype != null ? '$name [$slots]':'$name';
+    return subtype != null && slots != null ? '$name [$slots]':'$name';
   }
 
   Map<String, dynamic> toMap() {

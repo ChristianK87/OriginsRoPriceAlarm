@@ -1,11 +1,11 @@
-import 'package:sqflite/sqflite.dart';
 import 'package:flutter/material.dart';
 import 'package:price_alarm/settings/settings.dart';
+import 'package:price_alarm/pricealarm/price_alarm_data.dart';
 import 'package:price_alarm/originro/originro.dart';
+import 'package:price_alarm/shared.dart';
 import 'dart:async';
 import 'package:background_fetch/background_fetch.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:price_alarm/shared.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'dart:convert';
 
@@ -14,6 +14,7 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
   var _priceAlarms = List<PriceAlarm>();
   List<MarketItem> items = new List();
   FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+  var service = new PriceAlarmService();
 
   @override
   void initState() {
@@ -21,7 +22,7 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
     flutterLocalNotificationsPlugin = new FlutterLocalNotificationsPlugin();
 // initialise the plugin. app_icon needs to be a added as a drawable resource to the Android head project
     var initializationSettingsAndroid =
-    new AndroidInitializationSettings('@mipmap/notification');
+        new AndroidInitializationSettings('@mipmap/notification');
     var initializationSettingsIOS = IOSInitializationSettings(
         onDidReceiveLocalNotification: onDidReceiveLocalNotification);
     var initializationSettings = InitializationSettings(
@@ -42,12 +43,11 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
     if (payload != null) {
       debugPrint('notification payload: ' + payload);
     }
-    setState(() {
-
-    });
+    setState(() {});
   }
 
-  Future onDidReceiveLocalNotification(int id, String title, String body, String payload) {
+  Future onDidReceiveLocalNotification(
+      int id, String title, String body, String payload) {
     return Future.value(true);
   }
 
@@ -59,11 +59,12 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
   // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initPlatformState() async {
     // Configure BackgroundFetch.
-    BackgroundFetch.configure(BackgroundFetchConfig(
-        minimumFetchInterval: 15,
-        stopOnTerminate: false,
-        enableHeadless: false,
-    ), () async {
+    BackgroundFetch.configure(
+        BackgroundFetchConfig(
+          minimumFetchInterval: 15,
+          stopOnTerminate: false,
+          enableHeadless: false,
+        ), () async {
       // This is the fetch-event callback.
       setState(() async {
         await checkMarket();
@@ -83,33 +84,42 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
     var priceAlarmRepository = new PriceAlarmRepository();
     List<PriceAlarm> priceAlarms = await priceAlarmRepository.priceAlarms();
     Market market = await new OriginRoService().getMarket();
-    List<MarketItem> items = new List();
+    items = new List();
     market.shops.forEach((Shop shop) => items.addAll(shop.items));
-    priceAlarms.forEach((PriceAlarm priceAlarm){
-      priceAlarm.found = items.firstWhere((MarketItem item) => item.itemId == priceAlarm.id && item.price <= priceAlarm.price, orElse: ()=> null)!= null;
-      if(priceAlarm.found){
+    updatePriceAlarms(priceAlarms);
+
+    //Return true when the task executed successfully or not
+  }
+
+  void updatePriceAlarms(List<PriceAlarm> priceAlarms) {
+    var priceAlarmRepository = new PriceAlarmRepository();
+
+    priceAlarms.forEach((PriceAlarm priceAlarm) {
+      service.updatePriceAlarmState(items, priceAlarm);
+      if (priceAlarm.found) {
         var androidPlatformChannelSpecifics = AndroidNotificationDetails(
             'your channel id', 'your channel name', 'your channel description',
-            importance: Importance.Max, priority: Priority.High, ticker: 'ticker');
+            importance: Importance.Max,
+            priority: Priority.High,
+            ticker: 'ticker');
         var iOSPlatformChannelSpecifics = IOSNotificationDetails();
         var platformChannelSpecifics = NotificationDetails(
             androidPlatformChannelSpecifics, iOSPlatformChannelSpecifics);
-        flutterLocalNotificationsPlugin.show(
-            0, 'Found item', 'An Item on your wishlist is on sale', platformChannelSpecifics,
+        flutterLocalNotificationsPlugin.show(0, 'Found item',
+            'An Item on your wishlist is on sale', platformChannelSpecifics,
             payload: '');
       }
       priceAlarmRepository.updatePriceAlarm(priceAlarm);
     });
-
-    //Return true when the task executed successfully or not
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<PriceAlarm>>(
-      future: new PriceAlarmRepository().priceAlarms(),
-      builder: (BuildContext context, AsyncSnapshot<List<PriceAlarm>> snapshot){
-        if(snapshot.hasData){
+      future: new PriceAlarmService().getPriceAlarms(),
+      builder:
+          (BuildContext context, AsyncSnapshot<List<PriceAlarm>> snapshot) {
+        if (snapshot.hasData) {
           this.context = context;
           this._priceAlarms = snapshot.data;
           return Scaffold(
@@ -142,45 +152,42 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
               )
             ],
           ),
-
         );
       },
     );
   }
 
   void _pushNewEntry() {
-    Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (BuildContext context) {
-            return Scaffold(
-              appBar: AppBar(
-                title: Text('Add new item'),
-              ),
-              body: new PriceAlarmForm(),
-            );
-          },
-        ));
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (BuildContext context) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Add new item'),
+          ),
+          body: new PriceAlarmForm(),
+        );
+      },
+    ));
   }
 
   void _settings() {
-    Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (BuildContext context) {
-            return Scaffold(
-              appBar: AppBar(
-                title: Text('Settings'),
-              ),
-              body: new SettingsForm(),
-            );
-          },
-        ));
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (BuildContext context) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Settings'),
+          ),
+          body: new SettingsForm(),
+        );
+      },
+    ));
   }
 
-  removeEntry(id) {
-    new PriceAlarmRepository().removeEntry(id);
+  removeEntry(PriceAlarm priceAlarm) {
+    new PriceAlarmService().removePriceAlarm(priceAlarm);
   }
 
-  Widget _buildSuggestions()  {
+  Widget _buildSuggestions() {
     return ListView.builder(
         padding: const EdgeInsets.all(16.0),
         itemCount: this._priceAlarms.length,
@@ -190,48 +197,54 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
   }
 
   Widget _buildRow(PriceAlarm priceAlarm) {
+    service.updatePriceAlarmState(items, priceAlarm);
+    String priceAlarmSubtitle =
+        '${Shared.intToStringWithSeparator(priceAlarm.price)} Zeny';
+    if (priceAlarm.cards != null && priceAlarm.cards.length > 0) {
+      var cards = priceAlarm.cards
+          .map((PriceAlarmCard card) => '[${card.name}]')
+          .join("\n");
+      priceAlarmSubtitle = '$cards \n $priceAlarmSubtitle';
+    }
     return Container(
         margin: const EdgeInsets.all(5.0),
         padding: const EdgeInsets.all(5.0),
         decoration: BoxDecoration(
-          shape: BoxShape.rectangle,
-          borderRadius: BorderRadius.circular(10.0),
-          color: priceAlarm.found ? Colors.lightGreenAccent: Colors.white,
-          boxShadow: [
-            new BoxShadow(
-                color: Colors.grey,
-                offset: new Offset(2.0, 2.0),
-                blurRadius: 2.0,
-                spreadRadius: 2.0
-            )
-          ]
-        ),
-    child: ListTile(
-      title: Text(
-        priceAlarm.name,
-        style: TextStyle(fontSize: 18.0),
-      ),
-      subtitle:
-      Text(
-        '${Shared.intToStringWithSeparator(priceAlarm.price)} Zeny',
-        style: TextStyle(fontSize: 16.0),
-      ),
-      leading:  priceAlarm.icon != null ? Image.memory(base64Decode(priceAlarm.icon)): null
-      ,
-      trailing: IconButton(
-        icon: Icon(
-          Icons.delete,
-        ),
-        onPressed: () {
-          setState(() {
-            removeEntry(priceAlarm.id);
-          });
-        },
-      ),
-    )
-    );
+            shape: BoxShape.rectangle,
+            borderRadius: BorderRadius.circular(10.0),
+            color: priceAlarm.found ? Colors.lightGreenAccent : Colors.white,
+            boxShadow: [
+              new BoxShadow(
+                  color: Colors.grey,
+                  offset: new Offset(2.0, 2.0),
+                  blurRadius: 2.0,
+                  spreadRadius: 2.0)
+            ]),
+        child: ListTile(
+          title: Text(
+            priceAlarm.name,
+            style: TextStyle(fontSize: 18.0),
+          ),
+          subtitle: Text(
+            priceAlarmSubtitle,
+            style: TextStyle(fontSize: 16.0),
+          ),
+          isThreeLine: true,
+          leading: priceAlarm.icon != null
+              ? Image.memory(base64Decode(priceAlarm.icon))
+              : null,
+          trailing: IconButton(
+            icon: Icon(
+              Icons.delete,
+            ),
+            onPressed: () {
+              setState(() {
+                removeEntry(priceAlarm);
+              });
+            },
+          ),
+        ));
   }
-
 }
 
 class PriceAlarmWidget extends StatefulWidget {
@@ -239,31 +252,8 @@ class PriceAlarmWidget extends StatefulWidget {
   PriceAlarmState createState() => PriceAlarmState();
 }
 
-class PriceAlarm {
-  String id;
-  int price;
-  bool found;
-  String name;
-  String icon;
-
-  PriceAlarm();
-
-  PriceAlarm.withIdAndPrice(this.id, this.price, this.found, this.name, this.icon);
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'price': price,
-      'found': found,
-      'name': name,
-      'icon': icon,
-    };
-  }
-}
-
 // Define a custom Form widget.
 class PriceAlarmForm extends StatefulWidget {
-
   PriceAlarmForm();
 
   @override
@@ -281,10 +271,14 @@ class PriceAlarmFormState extends State<PriceAlarmForm> {
   // Note: This is a `GlobalKey<FormState>`,
   // not a GlobalKey<MyCustomFormState>.
   final _formKey = GlobalKey<FormState>();
-
+  bool isRefinable = false;
+  List<Item> cards = new List();
   final newPriceAlarm = new PriceAlarm();
 
+  int maxCards = 0;
+
   final TextEditingController _typeAheadController = TextEditingController();
+  final TextEditingController cardsController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -292,136 +286,221 @@ class PriceAlarmFormState extends State<PriceAlarmForm> {
     return Form(
       key: _formKey,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
-        child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          TypeAheadField(
-            textFieldConfiguration: TextFieldConfiguration(
-                autofocus: true,
-                controller: _typeAheadController,
-                style: DefaultTextStyle.of(context).style.copyWith(
-                    fontStyle: FontStyle.italic
+          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                TypeAheadField(
+                  textFieldConfiguration: TextFieldConfiguration(
+                      autofocus: true,
+                      controller: _typeAheadController,
+                      style: DefaultTextStyle.of(context)
+                          .style
+                          .copyWith(fontStyle: FontStyle.italic),
+                      decoration: InputDecoration(
+                          border: OutlineInputBorder(), labelText: 'Item')),
+                  suggestionsCallback: (pattern) async {
+                    return await new ItemRepository().items(pattern);
+                  },
+                  itemBuilder: (context, Item suggestion) {
+                    return ListTile(
+                      leading: suggestion.icon != null
+                          ? Image.memory(base64Decode(suggestion.icon))
+                          : null,
+                      title: Text(suggestion.toString()),
+                      subtitle: Text(suggestion.itemId),
+                    );
+                  },
+                  onSuggestionSelected: (Item suggestion) {
+                    newPriceAlarm.itemId = suggestion.itemId;
+                    newPriceAlarm.name = suggestion.toString();
+                    newPriceAlarm.icon = suggestion.icon;
+                    cards = new List();
+                    _typeAheadController.text = suggestion.toString();
+                    setState(() {
+                      isRefinable = suggestion.type == "IT_WEAPON" ||
+                          suggestion.type == "IT_ARMOR";
+                      maxCards =
+                          suggestion.slots != null ? suggestion.slots : 0;
+                    });
+                  },
                 ),
-                decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                  labelText: 'Item'
-                )
+                isRefinable
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10.0),
+                        child: Container(
+                          width: 130.0,
+                          child: DropdownButtonFormField<int>(
+                            decoration: InputDecoration(
+                                labelText: 'Refinerate',
+                                border: OutlineInputBorder(),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 15.0)),
+                            value: newPriceAlarm.refinement,
+                            icon: null,
+                            iconSize: 24,
+                            elevation: 10,
+                            isDense: true,
+                            style: TextStyle(
+                                fontSize: 18.0, color: Colors.black87),
+                            onChanged: (int newValue) {
+                              setState(() {
+                                newPriceAlarm.refinement = newValue;
+                              });
+                            },
+                            onSaved: (val) => newPriceAlarm.refinement = val,
+                            items: <int>[-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                                .map<DropdownMenuItem<int>>((int value) {
+                              return DropdownMenuItem<int>(
+                                value: value,
+                                child: Text(
+                                  value == -1 ? 'any' : '+$value',
+                                  style: TextStyle(fontSize: 18.0),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ))
+                    : SizedBox(),
+                maxCards > 0
+                    ? ListView.builder(
+                        padding: const EdgeInsets.all(16.0),
+                        itemCount: this.cards.length,
+                        shrinkWrap: true,
+                        itemBuilder: /*1*/ (context, i) {
+                          var card = this.cards.elementAt(i);
+                          return Container(
+                            margin: const EdgeInsets.all(5.0),
+                            padding: const EdgeInsets.all(5.0),
+                            decoration: BoxDecoration(
+                                shape: BoxShape.rectangle,
+                                borderRadius: BorderRadius.circular(10.0),
+                                color: Colors.white,
+                                boxShadow: [
+                                  new BoxShadow(
+                                      color: Colors.grey,
+                                      offset: new Offset(2.0, 2.0),
+                                      blurRadius: 2.0,
+                                      spreadRadius: 2.0)
+                                ]),
+                            child: ListTile(
+                                title: Text(
+                                  card.toString(),
+                                  style: TextStyle(fontSize: 16.0),
+                                ),
+                                trailing: ButtonBar(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.content_copy,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          if (cards.length < maxCards) {
+                                            cards.add(card);
+                                          }
+                                        });
+                                      },
+                                    ),
+                                    IconButton(
+                                        icon: Icon(
+                                          Icons.delete,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            cards.removeAt(i);
+                                          });
+                                        }),
+                                  ],
+                                )),
+                          );
+                        })
+                    : SizedBox(),
+                maxCards > 0
+                    ? TypeAheadField(
+                        textFieldConfiguration: TextFieldConfiguration(
+                            autofocus: true,
+                            controller: cardsController,
+                            style: DefaultTextStyle.of(context)
+                                .style
+                                .copyWith(fontStyle: FontStyle.italic),
+                            decoration: InputDecoration(
+                                border: OutlineInputBorder(),
+                                labelText: 'Card')),
+                        autoFlipDirection: true,
+                        suggestionsCallback: (pattern) async {
+                          return await new ItemRepository().cards(pattern);
+                        },
+                        itemBuilder: (context, suggestion) {
+                          return ListTile(
+                            title: Text(suggestion.toString()),
+                            subtitle: Text(suggestion.itemId),
+                          );
+                        },
+                        onSuggestionSelected: (suggestion) {
+                          setState(() {
+                            if (cards.length < maxCards) {
+                              cards.add(suggestion);
+                            }
+                          });
+                        },
+                      )
+                    : SizedBox(),
+                TextFormField(
+                  decoration: const InputDecoration(
+                    icon: const Icon(Icons.attach_money),
+                    hintText: 'Enter the pricelimit',
+                    labelText: 'Price',
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value.isEmpty) {
+                      return 'Please enter a price';
+                    }
+                    return null;
+                  },
+                  onSaved: (val) => newPriceAlarm.price = int.tryParse(val),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  child: RaisedButton(
+                    onPressed: () async {
+                      // Validate returns true if the form is valid, or false
+                      // otherwise.
+                      final FormState form = _formKey.currentState;
+                      if (form.validate()) {
+                        // If the form is valid, display a Snackbar.
+                        form.save();
+                        setState(() async {
+                          newPriceAlarm.name = newPriceAlarm.refinement == -1
+                              ? newPriceAlarm.name
+                              : '+${newPriceAlarm.refinement} ${newPriceAlarm.name}';
+                          newPriceAlarm.found = false;
+                          newPriceAlarm.cards = cards
+                              .map((Item card) => new PriceAlarmCard(
+                                  1,
+                                  newPriceAlarm.id,
+                                  card.itemId,
+                                  card.toString()))
+                              .toList();
+                          var priceAlarmService = new PriceAlarmService();
+                          await priceAlarmService
+                              .insertPriceAlarm(newPriceAlarm);
+                          Scaffold.of(context).showSnackBar(
+                              SnackBar(content: Text('Processing Data')));
+                          Navigator.pop(context);
+                        });
+                      }
+                    },
+                    child: Text('Submit'),
+                  ),
+                ),
+              ],
             ),
-            suggestionsCallback: (pattern) async {
-              return await new ItemRepository().items(pattern);
-            },
-            itemBuilder: (context, Item suggestion) {
-              return ListTile(
-                leading: suggestion.icon != null ? Image.memory(base64Decode(suggestion.icon)) : null,
-                title: Text(suggestion.toString()),
-                subtitle: Text(suggestion.itemId),
-              );
-            },
-            onSuggestionSelected: (Item suggestion) {
-              newPriceAlarm.id = suggestion.itemId;
-              newPriceAlarm.name = suggestion.toString();
-              newPriceAlarm.icon = suggestion.icon;
-              _typeAheadController.text = suggestion.toString();
-            },
-          ),
-          TextFormField(
-            decoration: const InputDecoration(
-              icon: const Icon(Icons.attach_money),
-              hintText: 'Enter the pricelimit',
-              labelText: 'Price',
-            ),
-            keyboardType: TextInputType.number,
-            validator: (value) {
-              if (value.isEmpty) {
-                return 'Please enter some text';
-              }
-              return null;
-            },
-            onSaved: (val) => newPriceAlarm.price = int.tryParse(val),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16.0),
-            child: RaisedButton(
-              onPressed: () async {
-                // Validate returns true if the form is valid, or false
-                // otherwise.
-                final FormState form = _formKey.currentState;
-                if (form.validate()) {
-                  // If the form is valid, display a Snackbar.
-                  form.save();
-                  newPriceAlarm.found = false;
-                  var priceAlarmService = new PriceAlarmRepository();
-                  await priceAlarmService.insertPriceAlarm(newPriceAlarm);
-                  Scaffold.of(context)
-                      .showSnackBar(SnackBar(content: Text('Processing Data')));
-                  Navigator.pop(context);
-                }
-              },
-              child: Text('Submit'),
-            ),
-          ),
-        ],
-      ),
-      ),
-    );
-  }
-}
-
-class PriceAlarmRepository{
-
-  Future<void> insertPriceAlarm(PriceAlarm priceAlarm) async {
-    // Get a reference to the database.
-    final Database db = await Shared.getDatabase();
-
-    // Insert the Dog into the correct table. You might also specify the
-    // `conflictAlgorithm` to use in case the same dog is inserted twice.
-    //
-    // In this case, replace any previous data.
-    await db.insert(
-      'price_alarm',
-      priceAlarm.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  Future<List<PriceAlarm>> priceAlarms() async {
-    // Get a reference to the database.
-    final Database db = await Shared.getDatabase();
-
-    // Query the table for all The Dogs.
-    final List<Map<String, dynamic>> maps = await db.query('price_alarm');
-
-    // Convert the List<Map<String, dynamic> into a List<Dog>.
-    return List.generate(maps.length, (i) {
-      return PriceAlarm.withIdAndPrice(
-        maps[i]['id'],
-        maps[i]['price'],
-        maps[i]['found'] == 1,
-        maps[i]['name'],
-        maps[i]['icon'],
-      );
-    });
-  }
-
-  Future<void> removeEntry(id) async {
-    final db = await Shared.getDatabase();
-
-    await db.delete(
-      'price_alarm',
-      where: "id = ?",
-      whereArgs: [id],
-    );
-  }
-
-  void updatePriceAlarm(PriceAlarm priceAlarm) async {
-    final db = await Shared.getDatabase();
-
-    await db.update(
-      'price_alarm',
-      priceAlarm.toMap(),
-      where: "id = ?",
-      whereArgs: [priceAlarm.id],
+          )),
     );
   }
 }
