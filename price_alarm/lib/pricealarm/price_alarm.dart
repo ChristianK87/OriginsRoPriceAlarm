@@ -122,6 +122,7 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
         if (snapshot.hasData) {
           this.context = context;
           this._priceAlarms = snapshot.data;
+          updatePriceAlarms(this._priceAlarms);
           return Scaffold(
             appBar: AppBar(
               title: Text('Your watched items'),

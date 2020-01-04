@@ -54,7 +54,7 @@ class PriceAlarmService{
         return false;
       }
       var cardMatched = true;
-      if(priceAlarm.cards != null){
+      if(priceAlarm.cards != null && priceAlarm.cards.length > 0){
         if(item.cards == null){
           cardMatched = false;
         }else{

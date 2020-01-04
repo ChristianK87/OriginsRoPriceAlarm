@@ -21,6 +21,7 @@ void main() {
 
   test('updatePriceAlarmState with matched id, price, refinement and cards not defined should set found to true', () {
     var priceAlarm = new PriceAlarm.withIdAndPrice(12, "1234", 100, false, "", "", 7);
+    priceAlarm.cards = new List();
     var items = List.generate(1, (int index) => new MarketItem("1234", 1, 100, 7, [10,11], "", 0, 0));
     new PriceAlarmService().updatePriceAlarmState(items, priceAlarm);
     expect(priceAlarm.found, true);
