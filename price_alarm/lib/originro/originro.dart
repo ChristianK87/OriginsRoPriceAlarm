@@ -259,7 +259,7 @@ class Item{
   }
 
   toString(){
-    return subtype != null && slots != null ? '$name [$slots]':'$name';
+    return slots != null ? '$name [$slots]':'$name';
   }
 
   Map<String, dynamic> toMap() {
