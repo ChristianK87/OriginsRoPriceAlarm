@@ -95,8 +95,9 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
     var priceAlarmRepository = new PriceAlarmRepository();
 
     priceAlarms.forEach((PriceAlarm priceAlarm) {
+      var oldFound = priceAlarm.found;
       service.updatePriceAlarmState(items, priceAlarm);
-      if (priceAlarm.found) {
+      if (!oldFound && priceAlarm.found) {
         var androidPlatformChannelSpecifics = AndroidNotificationDetails(
             'your channel id', 'your channel name', 'your channel description',
             importance: Importance.Max,
