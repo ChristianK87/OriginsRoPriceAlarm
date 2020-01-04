@@ -18,7 +18,7 @@ class OriginRoService{
     }
   }
 
-  syncItems() async {
+  Future<void> syncItems() async {
     var settings = await new SettingsService().getSettings();
     http.Response itemResponse = await http.get(ApiBaseUrl+ 'items/list', headers: {'x-api-key':settings.apiKey});
     if(itemResponse.statusCode == 200){
@@ -38,7 +38,14 @@ class OriginRoService{
       }
       await itemRepo.insertItems(items);
     }else{
-      throw Exception('Failed to get markets');
+      var text = 'Failed to sync items';
+      if(itemResponse.statusCode == 401){
+        text = 'Invalid API Key';
+      }
+      if(itemResponse.statusCode == 429){
+        text = 'Too many requests - only 6 requests per day allowed';
+      }
+      throw Exception(text);
     }
   }
 
