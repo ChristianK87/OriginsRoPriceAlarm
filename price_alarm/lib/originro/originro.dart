@@ -14,7 +14,14 @@ class OriginRoService{
     if(response.statusCode == 200){
       return Market.fromJson(jsonDecode(response.body));
     }else{
-      throw Exception('Failed to get markets');
+      var text = 'Failed to get markets';
+      if(response.statusCode == 401){
+        text = 'Invalid API Key';
+      }
+      if(response.statusCode == 429){
+        text = 'Too many requests - only 12 requests per hour allowed';
+      }
+      throw Exception(text);
     }
   }
 

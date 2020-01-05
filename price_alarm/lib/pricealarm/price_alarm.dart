@@ -81,12 +81,21 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
   }
 
   checkMarket() async {
-    var priceAlarmRepository = new PriceAlarmRepository();
-    List<PriceAlarm> priceAlarms = await priceAlarmRepository.priceAlarms();
-    Market market = await new OriginRoService().getMarket();
-    items = new List();
-    market.shops.forEach((Shop shop) => items.addAll(shop.items));
-    updatePriceAlarms(priceAlarms);
+    var priceAlarmRepository = new PriceAlarmService();
+    List<PriceAlarm> priceAlarms = await priceAlarmRepository.getPriceAlarms();
+    try {
+      Market market = await new OriginRoService().getMarket();
+      items = new List();
+      market.shops.forEach((Shop shop) => items.addAll(shop.items));
+      updatePriceAlarms(priceAlarms);
+    } catch (e) {
+      Scaffold.of(context).showSnackBar(SnackBar(
+          duration: Duration(seconds: 10),
+          content: Text(
+            e.toString(),
+            style: TextStyle(color: Colors.redAccent),
+          )));
+    }
 
     //Return true when the task executed successfully or not
   }
@@ -116,47 +125,47 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<PriceAlarm>>(
-      future: new PriceAlarmService().getPriceAlarms(),
-      builder:
-          (BuildContext context, AsyncSnapshot<List<PriceAlarm>> snapshot) {
-        if (snapshot.hasData) {
-          this.context = context;
-          this._priceAlarms = snapshot.data;
-          updatePriceAlarms(this._priceAlarms);
-          return Scaffold(
-            appBar: AppBar(
-              title: Text('Your watched items'),
-              actions: <Widget>[
-                IconButton(icon: Icon(Icons.settings), onPressed: _settings),
-                IconButton(icon: Icon(Icons.add), onPressed: _pushNewEntry),
-              ],
-            ),
-            body: _buildSuggestions(),
-          );
-        }
-        return Scaffold(
-          appBar: AppBar(
-            title: Text('Your watched items'),
-          ),
-          body: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              SizedBox(
-                child: CircularProgressIndicator(),
-                width: 60,
-                height: 60,
-              ),
-              const Padding(
-                padding: EdgeInsets.only(top: 16),
-                child: Text('Awaiting result...'),
-              )
-            ],
-          ),
-        );
-      },
-    );
+    return Scaffold(
+        appBar: AppBar(
+          title: Text('Your watched items'),
+          actions: <Widget>[
+            IconButton(
+                icon: Icon(Icons.refresh),
+                onPressed: () {
+                  setState(() {
+                    checkMarket();
+                  });
+                }),
+            IconButton(icon: Icon(Icons.settings), onPressed: _settings),
+            IconButton(icon: Icon(Icons.add), onPressed: _pushNewEntry),
+          ],
+        ),
+        body: FutureBuilder<List<PriceAlarm>>(
+            future: new PriceAlarmService().getPriceAlarms(),
+            builder: (BuildContext context,
+                AsyncSnapshot<List<PriceAlarm>> snapshot) {
+              if (snapshot.hasData) {
+                this.context = context;
+                this._priceAlarms = snapshot.data;
+                updatePriceAlarms(this._priceAlarms);
+                return _buildSuggestions();
+              }
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  SizedBox(
+                    child: CircularProgressIndicator(),
+                    width: 60,
+                    height: 60,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: Text('Awaiting result...'),
+                  )
+                ],
+              );
+            }));
   }
 
   void _pushNewEntry() {
