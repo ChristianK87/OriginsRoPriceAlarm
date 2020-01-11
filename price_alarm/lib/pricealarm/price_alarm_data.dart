@@ -33,40 +33,66 @@ class PriceAlarmService{
   }
 
   void updatePriceAlarmState(List<MarketItem> items, PriceAlarm priceAlarm) {
+    MarketItem marketItem = findPriceAlarmInShop(items, priceAlarm);
+    priceAlarm.found = marketItem != null;
+  }
+
+  MarketItem findPriceAlarmInShop(List<MarketItem> items, PriceAlarm priceAlarm) {
     var marketItem = items.firstWhere((MarketItem item){
-      var idMatched = item.itemId == priceAlarm.itemId;
-      if(!idMatched){
+      var matched = comparePriceAlarmByIdAndRefineAndCard(item, priceAlarm);
+      if(!matched){
         return false;
       }
+
       var priceMatched = item.price <= priceAlarm.price;
       if(!priceMatched){
         return false;
       }
-      var refinementMatched = true;
-      if(priceAlarm.refinement != null && priceAlarm.refinement != -1){
-       if(item.refine == null){
-         refinementMatched = false;
-       }else{
-         refinementMatched = priceAlarm.refinement <= item.refine;
-       }
-      }
-      if(!refinementMatched){
-        return false;
-      }
-      var cardMatched = true;
-      if(priceAlarm.cards != null && priceAlarm.cards.length > 0){
-        if(item.cards == null){
-          cardMatched = false;
-        }else{
-          cardMatched = !priceAlarm.cards.any((PriceAlarmCard card) => !item.cards.contains(int.parse(card.cardId)));
-        }
-      }
-      if(!cardMatched){
-        return false;
-      }
       return true;
     } , orElse: ()=> null);
-    priceAlarm.found = marketItem != null;
+    return marketItem;
+  }
+
+  MarketItem findCheapestPriceAlarmInShop(List<MarketItem> items, PriceAlarm priceAlarm) {
+    List<MarketItem> marketItem = items.where((MarketItem item){
+      return comparePriceAlarmByIdAndRefineAndCard(item, priceAlarm);
+    } ).toList();
+
+    if(marketItem.length == 0){
+      return null;
+    }
+    marketItem.sort((MarketItem a, MarketItem b) => a.price.compareTo(b.price));
+    return marketItem.first;
+  }
+
+  bool comparePriceAlarmByIdAndRefineAndCard(MarketItem item, PriceAlarm priceAlarm) {
+    var idMatched = item.itemId == priceAlarm.itemId;
+    if(!idMatched){
+      return false;
+    }
+    var refinementMatched = true;
+    if(priceAlarm.refinement != null && priceAlarm.refinement != -1){
+      if(item.refine == null){
+        refinementMatched = false;
+      }else{
+        refinementMatched = priceAlarm.refinement <= item.refine;
+      }
+    }
+    if(!refinementMatched){
+      return false;
+    }
+    var cardMatched = true;
+    if(priceAlarm.cards != null && priceAlarm.cards.length > 0){
+      if(item.cards == null){
+        cardMatched = false;
+      }else{
+        cardMatched = !priceAlarm.cards.any((PriceAlarmCard card) => !item.cards.contains(int.parse(card.cardId)));
+      }
+    }
+    if(!cardMatched){
+      return false;
+    }
+    return true;
   }
 }
 

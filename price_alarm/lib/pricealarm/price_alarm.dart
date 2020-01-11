@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:price_alarm/pricealarm/shops.dart';
 import 'package:price_alarm/settings/settings.dart';
 import 'package:price_alarm/pricealarm/price_alarm_data.dart';
 import 'package:price_alarm/originro/originro.dart';
@@ -12,7 +13,7 @@ import 'dart:convert';
 class PriceAlarmState extends State<PriceAlarmWidget> {
   BuildContext context;
   var _priceAlarms = List<PriceAlarm>();
-  List<MarketItem> items = new List();
+  Market market;
   FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
   var service = new PriceAlarmService();
 
@@ -84,9 +85,7 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
     var priceAlarmRepository = new PriceAlarmService();
     List<PriceAlarm> priceAlarms = await priceAlarmRepository.getPriceAlarms();
     try {
-      Market market = await new OriginRoService().getMarket();
-      items = new List();
-      market.shops.forEach((Shop shop) => items.addAll(shop.items));
+      market = await new OriginRoService().getMarket();
       updatePriceAlarms(priceAlarms);
     } catch (e) {
       Scaffold.of(context).showSnackBar(SnackBar(
@@ -101,6 +100,8 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
   }
 
   void updatePriceAlarms(List<PriceAlarm> priceAlarms) {
+    List<MarketItem> items = new List<MarketItem>();
+    market.shops.forEach((Shop shop) => items.addAll(shop.items));
     var priceAlarmRepository = new PriceAlarmRepository();
 
     priceAlarms.forEach((PriceAlarm priceAlarm) {
@@ -147,7 +148,6 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
               if (snapshot.hasData) {
                 this.context = context;
                 this._priceAlarms = snapshot.data;
-                updatePriceAlarms(this._priceAlarms);
                 return _buildSuggestions();
               }
               return Column(
@@ -194,6 +194,25 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
     ));
   }
 
+  void showShops(PriceAlarm priceAlarm) {
+    if(market == null){
+      Scaffold.of(context).showSnackBar(SnackBar(content: Text('Market not loaded')));
+    }else{
+      List<Shop> shops = market.shops.where((Shop shop) => service.findCheapestPriceAlarmInShop(shop.items, priceAlarm) != null).toList();
+      shops.sort((Shop a, Shop b) => service.findCheapestPriceAlarmInShop(a.items, priceAlarm).price.compareTo(service.findCheapestPriceAlarmInShop(b.items, priceAlarm).price));
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (BuildContext context) {
+          return Scaffold(
+            appBar: AppBar(
+              title: Text(priceAlarm.name),
+            ),
+            body: new ShopsWidget(shops, priceAlarm),
+          );
+        },
+      ));
+    }
+  }
+
   removeEntry(PriceAlarm priceAlarm) {
     new PriceAlarmService().removePriceAlarm(priceAlarm);
   }
@@ -208,7 +227,11 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
   }
 
   Widget _buildRow(PriceAlarm priceAlarm) {
-    service.updatePriceAlarmState(items, priceAlarm);
+    if(market != null) {
+      List<MarketItem> items = new List();
+      market.shops.forEach((Shop shop) => items.addAll(shop.items));
+      service.updatePriceAlarmState(items, priceAlarm);
+    }
     String priceAlarmSubtitle =
         '${Shared.intToStringWithSeparator(priceAlarm.price)} Zeny';
     if (priceAlarm.cards != null && priceAlarm.cards.length > 0) {
@@ -254,6 +277,7 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
               });
             },
           ),
+          onTap: () => showShops(priceAlarm),
         ));
   }
 }

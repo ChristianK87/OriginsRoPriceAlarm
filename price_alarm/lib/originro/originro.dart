@@ -156,6 +156,45 @@ class ItemRepository{
     );
   }
 
+  Future<Item> getItemById(String itemId) async {
+    final Database db = await Shared.getDatabase();
+    List<Map<String, dynamic>>  maps = await db.query('item', where: "id = ?", whereArgs: [itemId]);
+
+
+    return List.generate(maps.length, (i) {
+      return Item.withIcon(
+        maps[i]['id'],
+        maps[i]['uniqueName'],
+        maps[i]['name'],
+        maps[i]['type'],
+        maps[i]['npcPrice'],
+        maps[i]['subtype'],
+        maps[i]['slots'],
+        maps[i]['icon'],
+      );
+    }).first;
+  }
+
+  Future<Map<String, Item>> getItemsById(List<String> itemId) async {
+    final Database db = await Shared.getDatabase();
+    List<Map<String, dynamic>>  maps = await db.query('item', where: "id in (${itemId.map((String i) =>"'$i'").join(',')})");
+
+
+    var items = List.generate(maps.length, (i) {
+      return Item.withIcon(
+        maps[i]['id'],
+        maps[i]['uniqueName'],
+        maps[i]['name'],
+        maps[i]['type'],
+        maps[i]['npcPrice'],
+        maps[i]['subtype'],
+        maps[i]['slots'],
+        maps[i]['icon'],
+      );
+    });
+    return Map.fromEntries(itemId.map((String itemId) => MapEntry(itemId, items.singleWhere((Item item)=> item.itemId == itemId))).toList());
+  }
+
 
 
 }
@@ -204,6 +243,11 @@ class Location{
   int y;
 
   Location(this.map, this.x, this.y);
+
+  @override
+  String toString(){
+    return '$map: X:$x, Y:$y';
+  }
 
   factory  Location.fromJson(Map<String, dynamic> json) {
     return Location(
