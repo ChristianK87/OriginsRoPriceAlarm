@@ -4,52 +4,24 @@ import 'package:price_alarm/settings/settings.dart';
 import 'package:price_alarm/pricealarm/price_alarm_data.dart';
 import 'package:price_alarm/originro/originro.dart';
 import 'package:price_alarm/shared.dart';
-import 'dart:async';
-import 'package:background_fetch/background_fetch.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'dart:convert';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
 
 class PriceAlarmState extends State<PriceAlarmWidget> {
   BuildContext context;
   var _priceAlarms = List<PriceAlarm>();
   Market market;
-  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+  int priceAlarmId;
   var service = new PriceAlarmService();
+  PriceAlarmRepository priceAlarmRepository = new PriceAlarmRepository();
 
   @override
   void initState() {
     super.initState();
-    flutterLocalNotificationsPlugin = new FlutterLocalNotificationsPlugin();
-// initialise the plugin. app_icon needs to be a added as a drawable resource to the Android head project
-    var initializationSettingsAndroid =
-        new AndroidInitializationSettings('@mipmap/notification');
-    var initializationSettingsIOS = IOSInitializationSettings(
-        onDidReceiveLocalNotification: onDidReceiveLocalNotification);
-    var initializationSettings = InitializationSettings(
-        initializationSettingsAndroid, initializationSettingsIOS);
-    flutterLocalNotificationsPlugin.initialize(initializationSettings,
-        onSelectNotification: onSelectNotification);
-    BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);
+
     initPlatformState();
-  }
-
-  void backgroundFetchHeadlessTask() async {
-    print('[BackgroundFetch] Headless event received.');
-    await checkMarket();
-    BackgroundFetch.finish();
-  }
-
-  Future onSelectNotification(String payload) async {
-    if (payload != null) {
-      debugPrint('notification payload: ' + payload);
-    }
-    setState(() {});
-  }
-
-  Future onDidReceiveLocalNotification(
-      int id, String title, String body, String payload) {
-    return Future.value(true);
   }
 
   @override
@@ -59,26 +31,35 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
 
   // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initPlatformState() async {
-    // Configure BackgroundFetch.
-    BackgroundFetch.configure(
-        BackgroundFetchConfig(
-          minimumFetchInterval: 15,
-          stopOnTerminate: false,
-          enableHeadless: false,
-        ), () async {
-      // This is the fetch-event callback.
-      setState(() async {
-        await checkMarket();
-      });
-      // IMPORTANT:  You must signal completion of your fetch task or the OS can punish your app
-      // for taking too long in the background.
-      BackgroundFetch.finish();
-    });
+    FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = new FlutterLocalNotificationsPlugin();
+    var initializationSettingsAndroid =
+    new AndroidInitializationSettings('@mipmap/notification');
+    var initializationSettingsIOS = IOSInitializationSettings(
+        onDidReceiveLocalNotification: onDidReceiveLocalNotification);
+    var initializationSettings = InitializationSettings(
+        initializationSettingsAndroid, initializationSettingsIOS);
+    flutterLocalNotificationsPlugin.initialize(initializationSettings,
+        onSelectNotification: onSelectNotification);
+  }
 
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
+  Future onSelectNotification(String payload) async {
+    // method is called 2 times, don't know why
+    if (payload != null && int.parse(payload) != priceAlarmId) {
+      priceAlarmId = int.parse(payload);
+      this.market = await new OriginRoService().getMarket();
+      var priceAlarm = await priceAlarmRepository.findById(priceAlarmId);
+      showShops(priceAlarm);
+      debugPrint('notification payload: ' + payload);
+    }
+
+//    setState(() {
+//      this.priceAlarmId = int.parse(payload);
+//    });
+  }
+
+  Future onDidReceiveLocalNotification(
+      int id, String title, String body, String payload) {
+    return Future.value(true);
   }
 
   checkMarket() async {
@@ -95,8 +76,6 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
             style: TextStyle(color: Colors.redAccent),
           )));
     }
-
-    //Return true when the task executed successfully or not
   }
 
   void updatePriceAlarms(List<PriceAlarm> priceAlarms) {
@@ -108,17 +87,7 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
       var oldFound = priceAlarm.found;
       service.updatePriceAlarmState(items, priceAlarm);
       if (!oldFound && priceAlarm.found) {
-        var androidPlatformChannelSpecifics = AndroidNotificationDetails(
-            'your channel id', 'your channel name', 'your channel description',
-            importance: Importance.Max,
-            priority: Priority.High,
-            ticker: 'ticker');
-        var iOSPlatformChannelSpecifics = IOSNotificationDetails();
-        var platformChannelSpecifics = NotificationDetails(
-            androidPlatformChannelSpecifics, iOSPlatformChannelSpecifics);
-        flutterLocalNotificationsPlugin.show(0, 'Found item',
-            'An Item on your wishlist is on sale', platformChannelSpecifics,
-            payload: '');
+       // TODO Show Snackbar
       }
       priceAlarmRepository.updatePriceAlarm(priceAlarm);
     });
@@ -126,6 +95,7 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
         appBar: AppBar(
           title: Text('Your watched items'),
@@ -148,6 +118,13 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
               if (snapshot.hasData) {
                 this.context = context;
                 this._priceAlarms = snapshot.data;
+//                if(this.priceAlarmId != null){
+//                  new OriginRoService().getMarket().then((Market value) async{
+//                    this.market = value;
+//                    var priceAlarm = await priceAlarmRepository.findById(priceAlarmId);
+//                    showShops(priceAlarm);
+//                  });
+//                }
                 return _buildSuggestions();
               }
               return Column(
@@ -283,6 +260,9 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
 }
 
 class PriceAlarmWidget extends StatefulWidget {
+  PriceAlarmWidget();
+
+
   @override
   PriceAlarmState createState() => PriceAlarmState();
 }
@@ -509,25 +489,23 @@ class PriceAlarmFormState extends State<PriceAlarmForm> {
                       if (form.validate()) {
                         // If the form is valid, display a Snackbar.
                         form.save();
-                        setState(() async {
-                          newPriceAlarm.name = newPriceAlarm.refinement == -1
-                              ? newPriceAlarm.name
-                              : '+${newPriceAlarm.refinement} ${newPriceAlarm.name}';
-                          newPriceAlarm.found = false;
-                          newPriceAlarm.cards = cards
-                              .map((Item card) => new PriceAlarmCard(
-                                  1,
-                                  newPriceAlarm.id,
-                                  card.itemId,
-                                  card.toString()))
-                              .toList();
-                          var priceAlarmService = new PriceAlarmService();
-                          await priceAlarmService
-                              .insertPriceAlarm(newPriceAlarm);
-                          Scaffold.of(context).showSnackBar(
-                              SnackBar(content: Text('Processing Data')));
-                          Navigator.pop(context);
-                        });
+                        newPriceAlarm.name = newPriceAlarm.refinement == -1
+                            ? newPriceAlarm.name
+                            : '+${newPriceAlarm.refinement} ${newPriceAlarm.name}';
+                        newPriceAlarm.found = false;
+                        newPriceAlarm.cards = cards
+                            .map((Item card) => new PriceAlarmCard(
+                            1,
+                            newPriceAlarm.id,
+                            card.itemId,
+                            card.toString()))
+                            .toList();
+                        var priceAlarmService = new PriceAlarmService();
+                        await priceAlarmService
+                            .insertPriceAlarm(newPriceAlarm);
+                        Scaffold.of(context).showSnackBar(
+                            SnackBar(content: Text('Processing Data')));
+                        Navigator.pop(context);
                       }
                     },
                     child: Text('Submit'),

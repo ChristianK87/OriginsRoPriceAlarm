@@ -200,6 +200,25 @@ class PriceAlarmRepository{
       whereArgs: [priceAlarm.id],
     );
   }
+
+  Future<PriceAlarm> findById(int priceAlarmId) async{
+    final db = await Shared.getDatabase();
+
+    final List<Map<String, dynamic>> maps = await db.query('price_alarm', columns: ['rowid','id','price','found','name','icon','refinement'], where: "rowid = ?", whereArgs: [priceAlarmId]);
+
+    // Convert the List<Map<String, dynamic> into a List<Dog>.
+    return List.generate(maps.length, (i) {
+      return PriceAlarm.withIdAndPrice(
+        maps[i]['rowid'],
+        maps[i]['id'],
+        maps[i]['price'],
+        maps[i]['found'] == 1,
+        maps[i]['name'],
+        maps[i]['icon'],
+        maps[i]['refinement'],
+      );
+    }).first;
+  }
 }
 
 class PriceAlarmCardRepository{

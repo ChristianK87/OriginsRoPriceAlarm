@@ -4,19 +4,61 @@ import 'package:flutter/material.dart';
 import 'package:price_alarm/pricealarm/price_alarm.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:price_alarm/settings/settings.dart';
+import 'package:workmanager/workmanager.dart';
+import 'package:price_alarm/pricealarm/price_alarm_data.dart';
+import 'package:price_alarm/originro/originro.dart';
 
+void backgroundFetchHeadlessTask() {
+  Workmanager.executeTask((task, inputData) async {
+    var settings = await new SettingsService().getSettings();
+    if(settings.apiKey == null || settings.apiKey == ''){
+      return true;
+    }
+    var service = new PriceAlarmService();
+    var pricealarmRepository = new PriceAlarmRepository();
+    List<PriceAlarm> priceAlarms = await service.getPriceAlarms();
 
+    Market market =  await new OriginRoService().getMarket();
+    List<MarketItem> items = new List<MarketItem>();
+    market.shops.forEach((Shop shop) => items.addAll(shop.items));
 
-FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+    priceAlarms.forEach((PriceAlarm priceAlarm) {
+      var oldFound = priceAlarm.found;
+      service.updatePriceAlarmState(items, priceAlarm);
+      if (priceAlarm.found && !oldFound) {
+        FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = new FlutterLocalNotificationsPlugin();
+        var androidPlatformChannelSpecifics = AndroidNotificationDetails(
+            'your channel id', 'your channel name', 'your channel description',
+            importance: Importance.Max,
+            priority: Priority.High,
+            ticker: 'ticker');
+        var iOSPlatformChannelSpecifics = IOSNotificationDetails();
+        var platformChannelSpecifics = NotificationDetails(
+            androidPlatformChannelSpecifics, iOSPlatformChannelSpecifics);
+        flutterLocalNotificationsPlugin.show(0, 'Found item',
+            'An item on your wishlist is on sale', platformChannelSpecifics,
+            payload: priceAlarm.id.toString());
+      }
+      pricealarmRepository.updatePriceAlarm(priceAlarm);
+    });
+    return Future.value(true);
+  });
+}
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  Workmanager.initialize(
+      backgroundFetchHeadlessTask, // The top level function, aka callbackDispatcher
+      isInDebugMode: false // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
+  );
+  Workmanager.registerPeriodicTask("1", "checkMarket", frequency: Duration(minutes: 15), inputData: null);
   runApp(MyApp());
 
 }
 
-
 class MyApp extends StatelessWidget {
+
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {

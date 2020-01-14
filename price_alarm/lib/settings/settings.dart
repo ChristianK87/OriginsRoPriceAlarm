@@ -200,8 +200,16 @@ class SettingsFormState extends State<SettingsForm> {
         if (action != null) {
           action(context);
         }
-      }).catchError((Exception e) => Scaffold.of(context).showSnackBar(
-          SnackBar( duration: Duration(seconds: 10),content: Text(e.toString(),style:TextStyle(color: Colors.redAccent),)))
+      }).catchError((Object e) {
+        Scaffold.of(context).showSnackBar(
+          SnackBar(
+              duration: Duration(seconds: 10),
+              content: Text(e.toString(),
+                style:TextStyle(color: Colors.redAccent),
+              )
+          )
+          );
+      }
     );
   }
 }
