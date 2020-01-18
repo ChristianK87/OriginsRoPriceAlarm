@@ -212,12 +212,17 @@ class Market{
   }
 }
 
+enum ShopType{
+    V,
+    B,
+}
+
 class Shop{
   String title;
   String owner;
   Location location;
   DateTime creationDate;
-  String type;
+  ShopType type;
   List<MarketItem> items;
 
   Shop(this.title, this.owner, this.location, this.creationDate, this.type,

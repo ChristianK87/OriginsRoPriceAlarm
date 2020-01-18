@@ -20,7 +20,7 @@ void backgroundFetchHeadlessTask() {
 
     Market market =  await new OriginRoService().getMarket();
     List<MarketItem> items = new List<MarketItem>();
-    market.shops.forEach((Shop shop) => items.addAll(shop.items));
+    market.shops.where((Shop shop) => shop.type == ShopType.V).forEach((Shop shop) => items.addAll(shop.items));
 
     priceAlarms.forEach((PriceAlarm priceAlarm) {
       var oldFound = priceAlarm.found;
