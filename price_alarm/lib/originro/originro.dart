@@ -236,7 +236,7 @@ class Shop{
       json['owner'],
       location,
       json['creationDate'],
-      json['type'],
+      ShopType.values.firstWhere((t) => t.toString() == 'ShopType.${json['type']}'),
       items
     );
   }

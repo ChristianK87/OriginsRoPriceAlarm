@@ -51,10 +51,6 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
       showShops(priceAlarm);
       debugPrint('notification payload: ' + payload);
     }
-
-//    setState(() {
-//      this.priceAlarmId = int.parse(payload);
-//    });
   }
 
   Future onDidReceiveLocalNotification(
@@ -80,14 +76,14 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
 
   void updatePriceAlarms(List<PriceAlarm> priceAlarms) {
     List<MarketItem> items = new List<MarketItem>();
-    market.shops.forEach((Shop shop) => items.addAll(shop.items));
+    market.shops.where((Shop shop) => shop.type == ShopType.V).forEach((Shop shop) => items.addAll(shop.items));
     var priceAlarmRepository = new PriceAlarmRepository();
 
     priceAlarms.forEach((PriceAlarm priceAlarm) {
       var oldFound = priceAlarm.found;
       service.updatePriceAlarmState(items, priceAlarm);
       if (!oldFound && priceAlarm.found) {
-       // TODO Show Snackbar
+        Scaffold.of(context).showSnackBar(SnackBar(content: Text('Found item')));
       }
       priceAlarmRepository.updatePriceAlarm(priceAlarm);
     });
@@ -118,13 +114,6 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
               if (snapshot.hasData) {
                 this.context = context;
                 this._priceAlarms = snapshot.data;
-//                if(this.priceAlarmId != null){
-//                  new OriginRoService().getMarket().then((Market value) async{
-//                    this.market = value;
-//                    var priceAlarm = await priceAlarmRepository.findById(priceAlarmId);
-//                    showShops(priceAlarm);
-//                  });
-//                }
                 return _buildSuggestions();
               }
               return Column(
@@ -175,7 +164,7 @@ class PriceAlarmState extends State<PriceAlarmWidget> {
     if(market == null){
       Scaffold.of(context).showSnackBar(SnackBar(content: Text('Market not loaded')));
     }else{
-      List<Shop> shops = market.shops.where((Shop shop) => service.findCheapestPriceAlarmInShop(shop.items, priceAlarm) != null).toList();
+      List<Shop> shops = market.shops.where((Shop shop) => shop.type == ShopType.V).where((Shop shop) => service.findCheapestPriceAlarmInShop(shop.items, priceAlarm) != null).toList();
       shops.sort((Shop a, Shop b) => service.findCheapestPriceAlarmInShop(a.items, priceAlarm).price.compareTo(service.findCheapestPriceAlarmInShop(b.items, priceAlarm).price));
       Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (BuildContext context) {

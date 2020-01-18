@@ -116,7 +116,7 @@ class PriceAlarm {
     return {
       'id': itemId,
       'price': price,
-      'found': found,
+      'found': found ? 1: 0,
       'name': name,
       'icon': icon,
       'refinement': refinement,
@@ -190,15 +190,17 @@ class PriceAlarmRepository{
     );
   }
 
-  void updatePriceAlarm(PriceAlarm priceAlarm) async {
+  Future<int> updatePriceAlarm(PriceAlarm priceAlarm) async {
     final db = await Shared.getDatabase();
+    var  result = await db.update(
+          'price_alarm',
+          priceAlarm.toMap(),
+          where: "rowid = ?",
+          whereArgs: [priceAlarm.id],
+          conflictAlgorithm: ConflictAlgorithm.replace
+      );
 
-    await db.update(
-      'price_alarm',
-      priceAlarm.toMap(),
-      where: "rowid = ?",
-      whereArgs: [priceAlarm.id],
-    );
+    return result;
   }
 
   Future<PriceAlarm> findById(int priceAlarmId) async{

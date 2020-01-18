@@ -22,9 +22,10 @@ void backgroundFetchHeadlessTask() {
     List<MarketItem> items = new List<MarketItem>();
     market.shops.where((Shop shop) => shop.type == ShopType.V).forEach((Shop shop) => items.addAll(shop.items));
 
-    priceAlarms.forEach((PriceAlarm priceAlarm) {
+    await Future.forEach(priceAlarms,(PriceAlarm priceAlarm) async {
       var oldFound = priceAlarm.found;
       service.updatePriceAlarmState(items, priceAlarm);
+      await pricealarmRepository.updatePriceAlarm(priceAlarm);
       if (priceAlarm.found && !oldFound) {
         FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = new FlutterLocalNotificationsPlugin();
         var androidPlatformChannelSpecifics = AndroidNotificationDetails(
@@ -39,7 +40,6 @@ void backgroundFetchHeadlessTask() {
             'An item on your wishlist is on sale', platformChannelSpecifics,
             payload: priceAlarm.id.toString());
       }
-      pricealarmRepository.updatePriceAlarm(priceAlarm);
     });
     return Future.value(true);
   });
